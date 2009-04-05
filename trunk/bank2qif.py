@@ -1,5 +1,6 @@
 #!/usr/bin/python
-# Importer script to convert Bancoposte txt files into QIF files,
+# Script to convert Bancoposta txt files 
+# and Fineco xls files into QIF files,
 # for use, among others, by gnucash.
 # 
 # Giuseppe La Rosa - galarosa@gmail.com
