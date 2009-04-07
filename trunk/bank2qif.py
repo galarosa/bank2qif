@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding: latin-1
 # Script to convert Bancoposta txt files 
 # and Fineco xls files into QIF files,
 # for use, among others, by gnucash.
@@ -16,6 +17,7 @@
 # 2009
 
 import csv, sys, os
+
 
 
 ##
@@ -134,17 +136,53 @@ def parse_rows_fineco(rows):
 				p = l[0].split("/")
 				print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
 				# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
-				if l[2] == '':
-					print 'T-%s' % l[3] # negative amount
+				if l[2].strip() == '':
+					print 'T-%s' % l[3].strip() # negative amount
 				else:
-					print 'T%s' % l[2]  # positive amount
-				print 'P%s' % l[4] # payee / description
-				print 'M%s' % l[5] # comment
+					print 'T%s' % l[2].strip()  # positive amount
+				print 'P%s' % l[4].strip() # payee / description
+				qifcategory=""
+				try:
+					qifcategory=fineco_conf[l[5].strip()]
+				except KeyError:
+					qifcategory=l[5].strip()
+				print 'L%s' % qifcategory # Category 
 				print '^\n' # end transaction
+
+
+##
+#
+#
+def load_as_dict(filename):
+	return eval("{" + open(filename).read() + "}")
 
 ##
 # begin main program
 #
+
+# Configurazione Bancoposta
+bancoposta_conf={
+"ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
+"IMPOSTA DI BOLLO SU C/C":"Servizi Bancari",
+"BONUS MENSILE":"Servizi Bancari",
+"PRELIEVI BANCOMAT":"Cash",
+"RICARICA TELEFONICA":"Telefono",
+"UTILIZZO CARTA DI CREDITO":"VISA Fineco",
+"QIFACCOUNT":"Attività:Attività correnti:Conto Bancoposta",
+}
+
+# Configurazione Fineco
+fineco_conf={
+"ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
+"IMPOSTA DI BOLLO SU C/C":"Servizi Bancari",
+"BONUS MENSILE":"Servizi Bancari",
+"PRELIEVI BANCOMAT":"Cash",
+"RICARICA TELEFONICA":"Telefono",
+"UTILIZZO CARTA DI CREDITO":"VISA Fineco",
+"QIFACCOUNT":"Attività:Attività correnti:Conto Fineco"
+}
+
+
 if len(sys.argv) < 2:
     usage
 
@@ -154,7 +192,7 @@ if sys.argv[2] == 'bancoposta':
 	    parseheader_bancoposta(rows)
 	except AssertionError:
 	    wrong_format()
-	print '!Account\nNAttivita:Attivita correnti:Conto Bancoposta\n^\n!Type:Bank\n'
+	print '!Account\nN%s\n^\n!Type:Bank\n' % bancoposta_conf["QIFACCOUNT"]
 	parse_rows_bancoposta(rows)
 else:
 	rows=load_input_file_fineco(sys.argv[1])
@@ -162,6 +200,6 @@ else:
 	    parseheader_fineco(rows)
 	except AssertionError:
 	    wrong_format
-	print '!Account\nNAttivita:Attivita correnti:Conto Fineco\n^\n!Type:Bank\n'
+	print '!Account\nN%s\n^\n!Type:Bank\n' % fineco_conf["QIFACCOUNT"]
 	parse_rows_fineco(rows)
 
