@@ -16,9 +16,7 @@
 # Antonino Sabetta - antonino.sabetta@isti.cnr.it
 # 2009
 
-import csv, sys, os
-
-
+import csv, sys, tempfile, os
 
 ##
 #
@@ -81,20 +79,22 @@ def load_input_file_bancoposta(file):
 #
 #
 def load_input_file_fineco(file):
-	try:
-	    #print "converting XLS to CSV"
-	    os.system("rm out.csv")
-	    os.system("xls2csv " + file + "> out.csv")
+
+	tmpfile=tempfile.mkstemp()
+	os.close(tmpfile[0])
+	try:	
+		os.system("xls2csv " + file + " > " + tmpfile[1])
 	except:
 	    usage
 
 	try:
-	    csvfile = open("out.csv")
+	    csvfile = open(tmpfile[1])
 	except IOError:
 	    print "Error reading CSV file"
 	    sys.exit(-1)
 	
 	rows = csv.reader(csvfile,delimiter=',')
+	os.remove(tmpfile[1])
 	return rows
 
 ##
@@ -149,7 +149,6 @@ def parse_rows_fineco(rows):
 				print 'L%s' % qifcategory # Category 
 				print '^\n' # end transaction
 
-
 ##
 #
 #
@@ -181,7 +180,6 @@ fineco_conf={
 "UTILIZZO CARTA DI CREDITO":"VISA Fineco",
 "QIFACCOUNT":"Attività:Attività correnti:Conto Fineco"
 }
-
 
 if len(sys.argv) < 2:
     usage
