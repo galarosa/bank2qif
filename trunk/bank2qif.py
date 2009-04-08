@@ -100,31 +100,7 @@ def load_input_file_fineco(file):
 ##
 #
 #
-def parse_rows_bancoposta(rows):
-	for l in rows:
-		if l == []:	
-			continue
-		else:
-			if "/" not in l[0]:
-				continue
-			else:
-				p = l[0].split("/")
-				print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
-				# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
-				# amount
-				negamount=l[2].strip().replace('.','').replace(',','.')
-				posamount=l[3].strip().replace('.','').replace(',','.')
-				if negamount != '':
-					print 'T-%s' % negamount # negative amount
-				else:
-					print 'T%s' % posamount  # positive amount
-				print 'P%s' % l[6].strip() # payee / description
-				print '^\n' # end transaction
-
-##
-#
-#
-def parse_rows_fineco(rows):
+def parse_rows(rows,bank):
 	for l in rows:
 		if l == []:
 			#print "skipping"
@@ -136,17 +112,26 @@ def parse_rows_fineco(rows):
 				p = l[0].split("/")
 				print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
 				# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
-				if l[2].strip() == '':
-					print 'T-%s' % l[3].strip() # negative amount
-				else:
-					print 'T%s' % l[2].strip()  # positive amount
-				print 'P%s' % l[4].strip() # payee / description
-				qifcategory=""
-				try:
-					qifcategory=fineco_conf[l[5].strip()]
-				except KeyError:
-					qifcategory=l[5].strip()
-				print 'L%s' % qifcategory # Category 
+				if bank == 'fineco':
+					if l[2].strip() == '':
+						print 'T-%s' % l[3].strip() # negative amount
+					else:
+						print 'T%s' % l[2].strip()  # positive amount
+					print 'P%s' % l[4].strip() # payee / description
+					qifcategory=""
+					try:
+						qifcategory=fineco_conf[l[5].strip()]
+					except KeyError:
+						qifcategory=l[5].strip()
+					print 'L%s' % qifcategory # Category
+				if bank == 'bancoposta':
+					negamount=l[2].strip().replace('.','').replace(',','.')
+					posamount=l[3].strip().replace('.','').replace(',','.')
+					if negamount != '':
+						print 'T-%s' % negamount # negative amount
+					else:
+						print 'T%s' % posamount  # positive amount
+					print 'P%s' % l[6].strip() # payee / description
 				print '^\n' # end transaction
 
 ##
@@ -191,7 +176,6 @@ if sys.argv[2] == 'bancoposta':
 	except AssertionError:
 	    wrong_format()
 	print '!Account\nN%s\n^\n!Type:Bank\n' % bancoposta_conf["QIFACCOUNT"]
-	parse_rows_bancoposta(rows)
 else:
 	rows=load_input_file_fineco(sys.argv[1])
 	try:
@@ -199,5 +183,5 @@ else:
 	except AssertionError:
 	    wrong_format
 	print '!Account\nN%s\n^\n!Type:Bank\n' % fineco_conf["QIFACCOUNT"]
-	parse_rows_fineco(rows)
+parse_rows(rows,sys.argv[2])
 
