@@ -16,7 +16,7 @@
 # Antonino Sabetta - antonino.sabetta@isti.cnr.it
 # 2009
 
-import csv, sys, tempfile, os
+import csv, sys, tempfile, os, pdb
 
 ##
 #
@@ -35,32 +35,55 @@ def wrong_format():
 ##
 #
 #
-def parseheader_bancoposta(rows):
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    #assert line == ['Risultato ricerca movimenti']
-    line = rows.next()
-    #assert line == ['DataOperazione','Data Valuta','Entrate','Uscite','Descrizione','Causale']
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-
-##
-#
-#
-def parseheader_fineco(rows):
-    line = rows.next()
-    line = rows.next()
-    line = rows.next()
-    assert line == ['Risultato ricerca movimenti']
-    
-    line = rows.next()
-    assert line == ['DataOperazione','Data Valuta','Entrate','Uscite','Descrizione','Causale']
+def parse_header(rows,bank):
+	header=["","","",""]
+	account_number=""
+	account_owner=""
+	if bank == 'fineco':		
+		# Account Number
+		line = rows.next()
+		assert "Conto Corrente n. " in line[0]
+		account_number = line[0].strip()
+		# Account Owner
+		line = rows.next()
+		assert "Intestazione Conto: " in line[0]
+		account_owner = line[0].strip()
+		header[0]=account_number + " " + account_owner
+		# Rows headers
+		line = rows.next()
+		assert line == ['Risultato ricerca movimenti']
+		line = rows.next()
+		assert line == ['Data Operazione','Data Valuta','Entrate','Uscite','Descrizione','Causale']
+	if bank == 'bancoposta':
+		# Blank line	
+		line = rows.next()
+		# Account Number
+		line = rows.next()
+		assert "Conto BancoPosta n.: " in line[0]
+		account_number = line[0].strip()
+		# Account Owner
+		line = rows.next()
+		assert "Intestatari: " in line[0]
+		account_owner = line[0].strip()
+		header[0]=account_number + " " + account_owner		
+		# Statement balance date
+		line = rows.next()
+		assert "Saldo al: " in line[0]
+		header[2]=line[0].split("Saldo al: ")[1].strip()
+		# Statement balance
+		line = rows.next()
+		assert "Saldo Contabile: " in line[0]
+		# Statement balance available
+		line = rows.next()
+		assert "Saldo Disponibile: " in line[0]
+		header[3]=line[0].split("Saldo Disponibile: ")[1].strip().replace('.','').replace(',','.')
+		# Rows headers
+		line = rows.next()
+		line = rows.next()
+		line = rows.next()
+		line = rows.next()
+		line = rows.next()
+	return header
 
 ##
 #
@@ -103,16 +126,18 @@ def load_input_file_fineco(file):
 def parse_rows(rows,bank):
 	for l in rows:
 		if l == []:
-			#print "skipping"
+			# Skip empty lines
 			continue
 		else:
 			if "/" not in l[0]:
+				# Skip lines without a date in the first field
 				continue
 			else:
-				p = l[0].split("/")
-				print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
-				# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
+				
 				if bank == 'fineco':
+					p = l[0].split("/")
+					print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
+					# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
 					if l[2].strip() == '':
 						print 'T-%s' % l[3].strip() # negative amount
 					else:
@@ -120,11 +145,14 @@ def parse_rows(rows,bank):
 					print 'P%s' % l[4].strip() # payee / description
 					qifcategory=""
 					try:
-						qifcategory=fineco_conf[l[5].strip()]
+						qifcategory=configuration[bank][l[5].strip()]
 					except KeyError:
 						qifcategory=l[5].strip()
 					print 'L%s' % qifcategory # Category
 				if bank == 'bancoposta':
+					p = l[0].split("/")
+					print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
+					# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
 					negamount=l[2].strip().replace('.','').replace(',','.')
 					posamount=l[3].strip().replace('.','').replace(',','.')
 					if negamount != '':
@@ -145,7 +173,8 @@ def load_as_dict(filename):
 #
 
 # Configurazione Bancoposta
-bancoposta_conf={
+configuration={
+"bancoposta":{
 "ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
 "IMPOSTA DI BOLLO SU C/C":"Servizi Bancari",
 "BONUS MENSILE":"Servizi Bancari",
@@ -153,10 +182,8 @@ bancoposta_conf={
 "RICARICA TELEFONICA":"Telefono",
 "UTILIZZO CARTA DI CREDITO":"VISA Fineco",
 "QIFACCOUNT":"Attività:Attività correnti:Conto Bancoposta",
-}
-
-# Configurazione Fineco
-fineco_conf={
+},
+"fineco":{
 "ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
 "IMPOSTA DI BOLLO SU C/C":"Servizi Bancari",
 "BONUS MENSILE":"Servizi Bancari",
@@ -165,23 +192,37 @@ fineco_conf={
 "UTILIZZO CARTA DI CREDITO":"VISA Fineco",
 "QIFACCOUNT":"Attività:Attività correnti:Conto Fineco"
 }
+}
 
 if len(sys.argv) < 2:
-    usage
+    usage()
+
+header=["","","",""]
 
 if sys.argv[2] == 'bancoposta':
 	rows=load_input_file_bancoposta(sys.argv[1])
 	try:
-	    parseheader_bancoposta(rows)
+	    header=parse_header(rows,sys.argv[2])
 	except AssertionError:
 	    wrong_format()
-	print '!Account\nN%s\n^\n!Type:Bank\n' % bancoposta_conf["QIFACCOUNT"]
-else:
+
+if sys.argv[2] == 'fineco':
 	rows=load_input_file_fineco(sys.argv[1])
 	try:
-	    parseheader_fineco(rows)
+	    header=parse_header(rows,sys.argv[2])
 	except AssertionError:
-	    wrong_format
-	print '!Account\nN%s\n^\n!Type:Bank\n' % fineco_conf["QIFACCOUNT"]
-parse_rows(rows,sys.argv[2])
+	    wrong_format()
 
+print '!Account\nN%s\nT%s'% (configuration[sys.argv[2]]["QIFACCOUNT"] ,"Bank")
+if header[0] != "":
+	print 'D%s' % header[0] 
+if header[1] != "":
+	print 'L%s' % header[1] 
+if header[2] != "":
+	print '/%s' % header[2] 
+if header[3] != "":
+	print '$%s' % header[3] 
+
+print '^\n\n!Type:Bank\n'
+
+parse_rows(rows,sys.argv[2])
