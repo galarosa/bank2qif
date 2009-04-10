@@ -16,7 +16,7 @@
 # Antonino Sabetta - antonino.sabetta@isti.cnr.it
 # 2009
 
-import csv, sys, tempfile, os, pdb
+import csv, sys, tempfile, os
 
 ##
 #
@@ -138,19 +138,24 @@ def parse_rows(rows,bank):
 					p = l[0].split("/")
 					print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
 					# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
-					if l[2].strip() == '':
-						print 'T-%s' % l[3].strip() # negative amount
+					negamount=l[3].strip()
+					posamount=l[2].strip()
+					if posamount == '':
+						print 'T-%s' % negamount # negative amount
 					else:
-						print 'T%s' % l[2].strip()  # positive amount
+						print 'T%s' % posamount  # positive amount
 					print 'P%s' % l[4].strip() # payee / description
 					qifcategory=""
 					try:
 						qifcategory=configuration[bank][l[5].strip()]
 					except KeyError:
-						qifcategory=l[5].strip()
+						if negamount != '':
+							qifcategory=configuration[bank]["QIFExit"] + ":" + l[5].strip() # negative amount
+						else:
+							qifcategory=configuration[bank]["QIFEnter"] + ":" + l[5].strip()  # positive amount
 					print 'L%s' % qifcategory # Category
 				if bank == 'bancoposta':
-					p = l[0].split("/")
+					p = l[1].split("/")
 					print "D%s/%s/%s" % (p[0], p[1], p[2]) # you can easily get month-day-year here...
 					# print 'D%s/%s/%s' % (l[0][4:6], l[0][6:8], l[0][0:4]) # date
 					negamount=l[2].strip().replace('.','').replace(',','.')
@@ -159,7 +164,16 @@ def parse_rows(rows,bank):
 						print 'T-%s' % negamount # negative amount
 					else:
 						print 'T%s' % posamount  # positive amount
+					qifcategory=""
+					try:
+						qifcategory=configuration[bank][l[4].strip()]
+					except KeyError:
+						if negamount != '':
+							qifcategory=configuration[bank]["QIFExit"] + ":" + l[4].strip() # negative amount
+						else:
+							qifcategory=configuration[bank]["QIFEnter"] + ":" + l[4].strip()  # positive amount					
 					print 'P%s' % l[6].strip() # payee / description
+					print 'L%s' % qifcategory # Category
 				print '^\n' # end transaction
 
 ##
@@ -175,13 +189,16 @@ def load_as_dict(filename):
 # Configurazione Bancoposta
 configuration={
 "bancoposta":{
-"ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
-"IMPOSTA DI BOLLO SU C/C":"Servizi Bancari",
-"BONUS MENSILE":"Servizi Bancari",
-"PRELIEVI BANCOMAT":"Cash",
-"RICARICA TELEFONICA":"Telefono",
-"UTILIZZO CARTA DI CREDITO":"VISA Fineco",
+"005":"Attività:Attività correnti:Liquidità",
+"019":"Uscite:Imposte:Altre imposte",
+"IN":"Uscite:Servizi",
+"POEMO":"Entrate:Stipendio",
+"160AD":"Uscite:Servizi bancari",
+"150":"Uscite",
+"0000000180":"Uscite:Servizi bancari",
 "QIFACCOUNT":"Attività:Attività correnti:Conto Bancoposta",
+"QIFEnter":"Entrate",
+"QIFExit":"Uscite"
 },
 "fineco":{
 "ADDEBITO- SERVIZIO BASE":"Servizi Bancari",
@@ -190,7 +207,9 @@ configuration={
 "PRELIEVI BANCOMAT":"Cash",
 "RICARICA TELEFONICA":"Telefono",
 "UTILIZZO CARTA DI CREDITO":"VISA Fineco",
-"QIFACCOUNT":"Attività:Attività correnti:Conto Fineco"
+"QIFACCOUNT":"Attività:Attività correnti:Conto Fineco",
+"QIFEnter":"Entrate",
+"QIFExit":"Uscite"
 }
 }
 
